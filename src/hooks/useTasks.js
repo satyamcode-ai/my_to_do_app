@@ -11,14 +11,25 @@ export function useTasks() {
     useEffect(() => {
         if (tasks.length === 0) return;
 
-        const completedTasks = tasks.filter(t => t.completedAt);
-        if (completedTasks.length === 0) {
+        // Flatten all completions from all tasks to find unique active days
+        const allCompletions = tasks.reduce((acc, task) => {
+            if (task.completions) {
+                return [...acc, ...task.completions];
+            }
+            // Backward compatibility for old task structure
+            if (task.completedAt) {
+                return [...acc, task.completedAt];
+            }
+            return acc;
+        }, []);
+
+        if (allCompletions.length === 0) {
             setStreak(prev => ({ ...prev, current: 0, lastActiveDate: null }));
             return;
         }
 
         // 1. Get distinct completed dates formatted as ISO strings at start of day
-        const completedDates = [...new Set(completedTasks.map(t => startOfDay(parseISO(t.completedAt)).toISOString()))].sort();
+        const completedDates = [...new Set(allCompletions.map(ts => startOfDay(parseISO(ts)).toISOString()))].sort();
 
         let tempStreak = 0;
         let maxStreak = 0;
@@ -67,9 +78,8 @@ export function useTasks() {
         const newTask = {
             id: uuidv4(),
             title: title.trim(),
-            completed: false,
-            createdAt: new Date().toISOString(),
-            completedAt: null
+            completions: [], // Array of ISO strings for each completion
+            createdAt: new Date().toISOString()
         };
         // Add to top of list
         setTasks([newTask, ...tasks]);
@@ -80,22 +90,48 @@ export function useTasks() {
     };
 
     const toggleTask = (id) => {
+        const today = startOfDay(new Date()).toISOString();
         setTasks(tasks.map(t => {
             if (t.id === id) {
-                const isCompleting = !t.completed;
-                return {
-                    ...t,
-                    completed: isCompleting,
-                    completedAt: isCompleting ? new Date().toISOString() : null
-                };
+                const completions = t.completions || (t.completedAt ? [t.completedAt] : []);
+                const isCompletedToday = completions.some(ts => isSameDay(parseISO(ts), new Date()));
+
+                if (isCompletedToday) {
+                    // Uncheck for today: remove today's timestamps
+                    return {
+                        ...t,
+                        completions: completions.filter(ts => !isSameDay(parseISO(ts), new Date())),
+                        completedAt: null // For backward compatibility
+                    };
+                } else {
+                    // Check for today: add current timestamp
+                    const now = new Date().toISOString();
+                    return {
+                        ...t,
+                        completions: [...completions, now],
+                        completedAt: now // For backward compatibility
+                    };
+                }
             }
             return t;
         }));
     };
 
+    const isSameDay = (d1, d2) => {
+        return startOfDay(d1).toISOString() === startOfDay(d2).toISOString();
+    };
+
+    const derivedTasks = tasks.map(t => {
+        const completions = t.completions || (t.completedAt ? [t.completedAt] : []);
+        return {
+            ...t,
+            completed: completions.some(ts => isSameDay(parseISO(ts), new Date()))
+        };
+    });
+
     const deleteTask = (id) => {
         setTasks(tasks.filter(t => t.id !== id));
     };
 
-    return { tasks, streak, addTask, editTask, toggleTask, deleteTask };
+    return { tasks: derivedTasks, streak, addTask, editTask, toggleTask, deleteTask };
 }

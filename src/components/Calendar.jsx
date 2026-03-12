@@ -23,9 +23,10 @@ export function Calendar({ tasks }) {
     const nextMonth = () => setCurrentDate(addMonths(currentDate, 1));
     const prevMonth = () => setCurrentDate(subMonths(currentDate, 1));
 
-    const completedDates = tasks
-        .filter(t => t.completedAt)
-        .map(t => parseISO(t.completedAt));
+    const completedDates = tasks.reduce((acc, task) => {
+        const completions = task.completions || (task.completedAt ? [task.completedAt] : []);
+        return [...acc, ...completions.map(ts => parseISO(ts))];
+    }, []);
 
     return (
         <div className="bg-card w-full border border-border rounded-3xl p-6 shadow-sm mb-8">

@@ -3,12 +3,11 @@ import { StreakCounter } from './StreakCounter';
 import { isToday, parseISO } from 'date-fns';
 
 export function StatsPanel({ tasks, streak }) {
-    const completedTasks = tasks.filter(t => t.completedAt);
-    const completedToday = completedTasks.filter(t => isToday(parseISO(t.completedAt))).length;
+    const completedToday = tasks.filter(t => t.completed).length;
 
-    const totalCompleted = completedTasks.length;
-    const completionRate = tasks.length > 0
-        ? Math.round((totalCompleted / tasks.length) * 100)
+    const totalPossibleCompletions = tasks.length;
+    const completionRate = totalPossibleCompletions > 0
+        ? Math.round((completedToday / totalPossibleCompletions) * 100)
         : 0;
 
     return (
