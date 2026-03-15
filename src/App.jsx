@@ -5,7 +5,7 @@ import { Calendar } from './components/Calendar';
 import { useTasks } from './hooks/useTasks';
 
 function App() {
-  const { tasks, streak, addTask, editTask, toggleTask, deleteTask } = useTasks();
+  const { tasks, streak, addTask, editTask, toggleTask, deleteTask, allCompletions } = useTasks();
 
   return (
     <div className="min-h-screen pb-16 px-4 sm:px-6 lg:px-8">
@@ -16,7 +16,7 @@ function App() {
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
           <div className="order-2 lg:order-1">
-            <Calendar tasks={tasks} />
+            <Calendar completions={allCompletions} />
           </div>
 
           <div className="order-1 lg:order-2">

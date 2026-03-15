@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 import { useLocalStorage } from './useLocalStorage';
 import { v4 as uuidv4 } from 'uuid';
 import { differenceInCalendarDays, startOfDay, parseISO } from 'date-fns';
@@ -7,21 +7,22 @@ export function useTasks() {
     const [tasks, setTasks] = useLocalStorage('productivity-tasks', []);
     const [streak, setStreak] = useLocalStorage('productivity-streak', { current: 0, longest: 0, lastActiveDate: null });
 
-    // Update streak logic based on distinct days with completed tasks
-    useEffect(() => {
-        if (tasks.length === 0) return;
+    const [deletedCompletions, setDeletedCompletions] = useLocalStorage('productivity-deleted-completions', []);
 
-        // Flatten all completions from all tasks to find unique active days
-        const allCompletions = tasks.reduce((acc, task) => {
+    const allCompletions = useMemo(() => {
+        return tasks.reduce((acc, task) => {
             if (task.completions) {
                 return [...acc, ...task.completions];
             }
-            // Backward compatibility for old task structure
             if (task.completedAt) {
                 return [...acc, task.completedAt];
             }
             return acc;
-        }, []);
+        }, [...deletedCompletions]);
+    }, [tasks, deletedCompletions]);
+
+    // Update streak logic based on distinct days with completed tasks
+    useEffect(() => {
 
         if (allCompletions.length === 0) {
             setStreak(prev => ({ ...prev, current: 0, lastActiveDate: null }));
@@ -71,7 +72,7 @@ export function useTasks() {
             lastActiveDate: lastCompletedStr
         }));
 
-    }, [tasks, setStreak]);
+    }, [allCompletions, setStreak]);
 
     const addTask = (title) => {
         if (!title.trim()) return;
@@ -130,8 +131,15 @@ export function useTasks() {
     });
 
     const deleteTask = (id) => {
+        const taskToDelete = tasks.find(t => t.id === id);
+        if (taskToDelete) {
+            const comp = taskToDelete.completions || (taskToDelete.completedAt ? [taskToDelete.completedAt] : []);
+            if (comp.length > 0) {
+                setDeletedCompletions(prev => [...prev, ...comp]);
+            }
+        }
         setTasks(tasks.filter(t => t.id !== id));
     };
 
-    return { tasks: derivedTasks, streak, addTask, editTask, toggleTask, deleteTask };
+    return { tasks: derivedTasks, streak, addTask, editTask, toggleTask, deleteTask, allCompletions };
 }
